@@ -9,6 +9,7 @@ package btools.expressions;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -575,20 +576,16 @@ public abstract class BExpressionContext
     return num != null && lookupData[num.intValue()] == 2;
   }
 
-  public void parseFile( File file, String readOnlyContext )
+  public void parseString( String string, String readOnlyContext )
   {
-    if ( !file.exists() )
-    {
-      throw new IllegalArgumentException( "profile "  + file + " does not exist" );
-    }
-    try
+   try
     {
       if ( readOnlyContext != null )
       {
         linenr = 1;
         String realContext = context;
         context = readOnlyContext;
-        expressionList = _parseFile( file );
+        expressionList = _parse( string );
         variableData = new float[variableNumbers.size()];
         evaluate( lookupData ); // lookupData is dummy here - evaluate just to create the variables
         context = realContext;
@@ -596,7 +593,7 @@ public abstract class BExpressionContext
       linenr = 1;
       minWriteIdx = variableData == null ? 0 : variableData.length;
 
-      expressionList = _parseFile( file );
+      expressionList = _parse( string );
 
       // determine the build-in variable indices
       String[] varNames = getBuildInVariableNames();
@@ -623,14 +620,36 @@ public abstract class BExpressionContext
     }
     if ( expressionList.size() == 0 )
     {
-        throw new IllegalArgumentException( file.getAbsolutePath()
-             + " does not contain expressions for context " + context + " (old version?)" );
+        throw new IllegalArgumentException( "profile does not contain expressions for context " + context + " (old version?)" );
     }
   }
-
-  private List<BExpression> _parseFile( File file ) throws Exception
+  
+  public void parseFile( File file, String readOnlyContext ) {
+    if ( !file.exists() )
+    {
+      throw new IllegalArgumentException( "profile "  + file + " does not exist" );
+    }
+    StringBuilder fileData = new StringBuilder();
+    try
+    {
+      BufferedReader reader = new BufferedReader( new FileReader( file ) );
+      char[] buf = new char[1024];
+      int numRead;
+      while ( (numRead = reader.read(buf)) != -1 )
+      {
+        String s = String.valueOf( buf, 0, numRead );
+        fileData.append( s );
+      }
+      reader.close();
+    }
+    catch (Exception e) { }
+    
+    parseString( fileData.toString(), readOnlyContext );
+  }
+  
+  private List<BExpression> _parse( String string ) throws Exception
   {
-    _br = new BufferedReader( new FileReader( file ) );
+    _br = new BufferedReader( new StringReader( string ) );
     _readerDone = false;
     List<BExpression> result = new ArrayList<BExpression>();
     for(;;)

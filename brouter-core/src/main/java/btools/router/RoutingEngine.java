@@ -63,17 +63,19 @@ public class RoutingEngine extends Thread
     this.outfileBase = outfileBase;
     this.logfileBase = logfileBase;
     this.waypoints = waypoints;
-    this.infoLogEnabled = outfileBase != null;
+    this.infoLogEnabled = outfileBase != null && rc.localFunction != null;
     this.routingContext = rc;
 
     try
     {
-      File debugLog = new File( new File( routingContext.localFunction ).getParentFile(), "../debug.txt" );
-      if ( debugLog.exists() )
-      {
-        infoLogWriter = new FileWriter( debugLog, true );
-        logInfo( "********** start request at " );
-        logInfo( "********** " + new Date() );
+      if ( infoLogEnabled ) {
+        File debugLog = new File( new File( routingContext.localFunction ).getParentFile(), "../debug.txt" );
+        if ( debugLog.exists() )
+        {
+          infoLogWriter = new FileWriter( debugLog, true );
+          logInfo( "********** start request at " );
+          logInfo( "********** " + new Date() );
+        }
       }
     }
     catch( IOException ioe )

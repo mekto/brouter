@@ -29,6 +29,7 @@ public final class RoutingContext implements DistanceChecker
   }
   public int alternativeIdx = 0;
   public String localFunction;
+  public String rawProfile;
 
   public String rawTrackPath;
   

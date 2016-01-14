@@ -42,15 +42,20 @@ public class ServerHandler extends RequestHandler {
   {
     rc = new RoutingContext();
     rc.serversizing = true;
-
-    String profile = params.get( "profile" );
-    // when custom profile replace prefix with directory path
-    if ( profile.startsWith( ProfileUploadHandler.CUSTOM_PREFIX ) )
-    {
-      String customProfile = profile.substring( ProfileUploadHandler.CUSTOM_PREFIX.length() );
-      profile = new File( serviceContext.customProfileDir, customProfile ).getPath();
+    
+    if ( params.containsKey( "profile" ) ) {
+       String profile = params.get( "profile" );
+        // when custom profile replace prefix with directory path
+        if ( profile.startsWith( ProfileUploadHandler.CUSTOM_PREFIX ) )
+        {
+          String customProfile = profile.substring( ProfileUploadHandler.CUSTOM_PREFIX.length() );
+          profile = new File( serviceContext.customProfileDir, customProfile ).getPath();
+        }
+        rc.localFunction = profile;     
+    } 
+    else {
+        rc.rawProfile = params.get( "rawProfile" );
     }
-    rc.localFunction = profile;
 
     rc.setAlternativeIdx(Integer.parseInt(params.get( "alternativeidx" )));
     

@@ -77,23 +77,26 @@ public class RouteServer extends Thread
             long maxRunningTime = getMaxRunningTime();
 
             RequestHandler handler;
-            if ( params.containsKey( "lonlats" ) && params.containsKey( "profile" ) )
-            {
-            	handler = new ServerHandler( serviceContext, params );
-            }
-            else if ( url.startsWith( PROFILE_UPLOAD_URL ) )
-            {
-              if ( getline.startsWith("OPTIONS") )
-              {
+            if ( getline.startsWith("OPTIONS") ) {
                 // handle CORS preflight request (Safari)
-                String corsHeaders = "Access-Control-Allow-Methods: GET, POST\n"
+                String corsHeaders = "Access-Control-Allow-Methods: GET, POST, OPTIONS\n"
+                                   + "Access-Control-Max-Age: 86400\n"
                                    + "Access-Control-Allow-Headers: Content-Type\n";
                 writeHttpHeader( bw, "text/plain", null, corsHeaders );
                 bw.flush();
                 return;
-              }
-              else
-              {
+            }
+            else if ( params.containsKey( "lonlats" ) && ( params.containsKey( "profile" ) || getline.startsWith( "POST" ) ) )
+            {
+            	if ( getline.startsWith( "POST" ) )
+                {
+                    String rawProfile = getPostBody(br);
+                    params.put("rawProfile", rawProfile);
+                }
+                handler = new ServerHandler( serviceContext, params );
+            }
+            else if ( url.startsWith( PROFILE_UPLOAD_URL ) )
+            {
                 writeHttpHeader(bw, "application/json");
 
                 String profileId = null;
@@ -108,7 +111,6 @@ public class RouteServer extends Thread
 
                 bw.flush();
                 return;
-              }
             }
             else
             {
@@ -116,25 +118,37 @@ public class RouteServer extends Thread
             }
             RoutingContext rc = handler.readRoutingContext();
             List<OsmNodeNamed> wplist = handler.readWayPointList();
-
-            cr = new RoutingEngine( null, null, serviceContext.segmentDir, wplist, rc );
-            cr.quite = true;
-            cr.doRun( maxRunningTime );
-
-            if ( cr.getErrorMessage() != null )
-            {
-              writeHttpHeader(bw);
-              bw.write( cr.getErrorMessage() );
-              bw.write( "\n" );
+            
+            try {
+                cr = new RoutingEngine( null, null, serviceContext.segmentDir, wplist, rc );
             }
-            else
-            {
-              OsmTrack track = cr.getFoundTrack();
-              writeHttpHeader(bw, handler.getMimeType(), handler.getFileName());
-              if ( track != null )
+            catch ( IllegalArgumentException e ) {
+              writeHttpHeader(bw);
+              bw.write( e.getMessage() );
+              bw.write( "\n" );
+              
+              e.printStackTrace();
+            }
+            
+            if ( cr != null ) {
+              cr.quite = true;
+              cr.doRun( maxRunningTime );
+
+              if ( cr.getErrorMessage() != null )
               {
-                bw.write( handler.formatTrack(track) );
+                writeHttpHeader(bw);
+                bw.write( cr.getErrorMessage() );
+                bw.write( "\n" );
               }
+              else
+              {
+                OsmTrack track = cr.getFoundTrack();
+                writeHttpHeader(bw, handler.getMimeType(), handler.getFileName());
+                if ( track != null )
+                {
+                  bw.write( handler.formatTrack(track) );
+                }
+              }                
             }
             bw.flush();
           }
@@ -235,6 +249,32 @@ public class RouteServer extends Thread
 	    }
 	  }
 	  return params;
+  }
+    
+  private static String getPostBody( BufferedReader br ) throws IOException
+  {
+    StringBuilder buffer = new StringBuilder();
+    Integer contentLength = 0;
+    String line;
+    int b;
+    
+    while ( br.ready() && (line = br.readLine()) != null )
+    {
+        if (line.startsWith("Content-Length: "))
+            contentLength = Integer.parseInt(line.substring(16));
+
+        // skip headers
+        // blank line separates headers from body
+        if ( line.length() == 0 )
+            break;
+    }
+    
+    int pos = 0;
+    while ( pos++ < contentLength && (b = br.read()) != -1 ) {
+        buffer.append((char) b);
+    }
+    
+    return buffer.toString();
   }
 
   private static long getMaxRunningTime() {
